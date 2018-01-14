@@ -1,6 +1,6 @@
 {
   "name": "reverse-read-line",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "read text file line by line from end.",
   "main": "lib/index.js",
   "repository": {
@@ -26,7 +26,11 @@
     "sinon": "^4.1.2"
   },
   "author": "wmzy",
-  "keywords": ["readline", "reverse", "tail"],
+  "keywords": [
+    "readline",
+    "reverse",
+    "tail"
+  ],
   "license": "ISC",
   "dependencies": {
     "lodash": "^4.17.4"
