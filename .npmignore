@@ -1,0 +1,9 @@
+# nyc
+coverage
+.nyc_output
+
+# IDE
+.idea
+.vscode
+.editorconfig
+.travis.yml

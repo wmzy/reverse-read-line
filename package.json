@@ -1,0 +1,34 @@
+{
+  "name": "reverse-read-line",
+  "version": "0.0.0",
+  "description": "read text file line by line from end.",
+  "main": "lib/index.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wmzy/reverse-read-line.git"
+  },
+  "scripts": {
+    "test": "nyc mocha -r babel-core/register -r should -r should-sinon",
+    "start": "npm test -- --watch",
+    "build": "babel src --out-dir lib",
+    "prepublish": "npm run build",
+    "coverage": "nyc report --reporter=text-lcov | coveralls"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.0",
+    "babel-preset-env": "^1.6.1",
+    "coveralls": "^3.0.0",
+    "mocha": "^4.0.1",
+    "nyc": "^11.3.0",
+    "should": "^13.1.3",
+    "should-sinon": "0.0.6",
+    "sinon": "^4.1.2"
+  },
+  "author": "wmzy",
+  "keywords": ["readline", "reverse", "tail"],
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^4.17.4"
+  }
+}
