@@ -11,14 +11,23 @@ export default class Reader {
   constructor(filename, {
     encoding = 'utf8',
     bufferSize = '1024',
-    separator = '\n'
+    separator
   } = {}) {
     this.filename = filename;
     this.encoding = encoding;
     this.bufferSize = bufferSize;
-    // todo: default '\r\n' on win; '' on mac
-    this.separator = separator;
-    this.separatorBuffer = Buffer.from(this.separator, encoding)
+    if (separator) {
+      const separatorBuffer = Buffer.from(separator, encoding);
+      this.splitLine = str => str.split(separator);
+      this.splitBuffer = buf => {
+        const l = buf.indexOf(separatorBuffer);
+        if (l < 0) return [];
+        return [l, l + separator.length];
+      }
+    } else {
+      this.bufCR = Buffer.from('\r', encoding);
+      this.bufLF = Buffer.from('\n', encoding);
+    }
     this.leftover = Buffer.alloc(0);
     this.size = 0;
     this.offset = 0;
@@ -41,6 +50,19 @@ export default class Reader {
     return close(this.fd);
   }
 
+  splitLine(str) {
+    return str.split(/\r?\n/);
+  }
+
+  splitBuffer(buf) {
+    const l = buf.indexOf(this.bufLF, 1);
+    if (l < 0) return [];
+
+    const r = l + 1;
+    if(buf[l - 1] === this.bufCR) return [l - 1, r];
+    return [l, r];
+  }
+
   readTrunk() {
     return read(this.fd, this.buffer, 0, this.bufferSize, this.offset)
       .then(({
@@ -51,19 +73,21 @@ export default class Reader {
         const buf = Buffer.concat([buffer.slice(0, bytesRead), this.leftover]);
         if (this.offset === 0) {
           this.hasEnd = true;
-          this.lines = buf.toString(this.encoding).split(this.separator);
+          const str = buf.toString(this.encoding)
+          this.lines = this.splitLine(str)
+            .concat(this.lines);
           return;
         }
         this.offset = _.max([this.offset, this.bufferSize]) - this.bufferSize;
-        const sepIndex = buf.indexOf(this.separatorBuffer);
-        if (sepIndex < 0) {
+        const [sl, sr] = this.splitBuffer(buf);
+        if (!sl) {
           this.leftover = buf;
           return this.readTrunk();
         }
-        this.leftover = buf.slice(0, sepIndex);
-        this.lines = buf.slice(sepIndex + this.separatorBuffer.length)
+        this.leftover = buf.slice(0, sl);
+        const str = buf.slice(sr)
           .toString(this.encoding)
-          .split(this.separator)
+        this.lines = this.splitLine(str)
           .concat(this.lines);
       })
   }
