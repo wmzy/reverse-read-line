@@ -10,7 +10,7 @@ const read = util.promisify(fs.read);
 export default class Reader {
   constructor(filename, {
     encoding = 'utf8',
-    bufferSize = '1024',
+    bufferSize = '4096',
     separator
   } = {}) {
     this.filename = filename;
@@ -25,8 +25,7 @@ export default class Reader {
         return [l, l + separator.length];
       }
     } else {
-      this.bufCR = Buffer.from('\r', encoding);
-      this.bufLF = Buffer.from('\n', encoding);
+      [this.bufCR, this.bufLF] = Buffer.from('\r\n', encoding);
     }
     this.leftover = Buffer.alloc(0);
     this.size = 0;

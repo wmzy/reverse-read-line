@@ -29,5 +29,13 @@ describe('read-line', function () {
       .should.be.fulfilledWith(['qian li jiang lin yi ri huan', '千里江陵一日还。']);
     await reader.close()
   });
+
+  it('read lines CRLF', async function () {
+    const reader = new Reader(path.join(__dirname, 'fixtrues/multi-lines.win.txt'), {bufferSize: 2});
+    await reader.open();
+    await reader.readLines(2)
+      .should.be.fulfilledWith(['qian li jiang lin yi ri huan', '千里江陵一日还。']);
+    await reader.close()
+  });
 });
 
