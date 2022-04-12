@@ -1,123 +1,135 @@
-import fs from 'fs';
-import util from 'util';
+const { promisify } = require("util");
+const fs = require("fs");
+const {Readable} = require("stream");
 
-const open = util.promisify(fs.open);
-const close = util.promisify(fs.close);
-const fstat = util.promisify(fs.fstat);
-const read = util.promisify(fs.read);
+const open = promisify(fs.open);
+const close = promisify(fs.close);
+const fstat = promisify(fs.fstat);
+const read = promisify(fs.read);
 
-export default class Reader {
-  constructor(filename, {
-    encoding = 'utf8',
-    bufferSize = 4096,
-    separator
-  } = {}) {
-    this.filename = filename;
-    this.encoding = encoding;
-    this.bufferSize = bufferSize;
-    if (separator) {
-      const separatorBuffer = Buffer.from(separator, encoding);
-      this.splitLine = str => str.split(separator);
-      this.splitBuffer = buf => {
-        const l = buf.indexOf(separatorBuffer);
-        if (l < 0) return [];
-        return [l, l + separator.length];
-      }
-    } else {
-      [this.bufCR, this.bufLF] = Buffer.from('\r\n', encoding);
-    }
-    this.leftover = Buffer.alloc(0);
-    this.size = 0;
-    this.offset = 0;
+export function create(
+  filename,
+  { encoding = "utf8", bufferSize = 4096, separator } = {}
+) {
+  let fd, size, offset, buffer, leftover, hasEnd, lines = [];
+  const sep = separator || /\r?\n/;
+
+  function splitLine(str) {
+    return str.split(sep);
   }
 
-  open() {
-    return open(this.filename, 'r')
-      .then(fd => (this.fd = fd))
+  let splitBuffer;
+
+  if (separator) {
+    const separatorBuffer = Buffer.from(separator, encoding);
+    splitBuffer = (buf) => {
+      const l = buf.indexOf(separatorBuffer);
+      if (l < 0) return [];
+      return [l, l + separator.length];
+    };
+  } else {
+    const [bufCR, bufLF] = Buffer.from("\r\n", encoding);
+    splitBuffer = function defaultSplitBuffer(buf) {
+      const l = buf.indexOf(bufLF, 1);
+      if (l < 0) return [];
+
+      const r = l + 1;
+      if (buf[l - 1] === bufCR) return [l - 1, r];
+      return [l, r];
+    };
+  }
+
+  function openAndReadStat() {
+    if (fd !== undefined) return Promise.resolve();
+    return open(filename, "r")
+      .then((_fd) => (fd = _fd))
       .then(fstat)
-      .then(stats => {
-        this.size = stats.size;
-        this.bufferSize = Math.min(this.size, this.bufferSize)
-        this.offset = this.size - this.bufferSize;
-        this.buffer = Buffer.alloc(this.bufferSize);
-        this.lines = [];
+      .then((stats) => {
+        size = stats.size;
+        bufferSize = Math.min(size, bufferSize);
+        offset = size - bufferSize;
+        buffer = Buffer.alloc(bufferSize);
+        leftover = Buffer.alloc(0);
+        lines = [];
       });
   }
 
-  close() {
-    return close(this.fd);
-  }
-
-  splitLine(str) {
-    return str.split(/\r?\n/);
-  }
-
-  splitBuffer(buf) {
-    const l = buf.indexOf(this.bufLF, 1);
-    if (l < 0) return [];
-
-    const r = l + 1;
-    if(buf[l - 1] === this.bufCR) return [l - 1, r];
-    return [l, r];
-  }
-
-  readTrunk() {
-    return read(this.fd, this.buffer, 0, this.bufferSize, this.offset)
-      .then(({
-        bytesRead,
-        buffer
-      }) => {
-        const buf = Buffer.concat([buffer.slice(0, bytesRead), this.leftover]);
-        if (this.offset === 0) {
-          this.hasEnd = true;
-          const str = buf.toString(this.encoding)
-          this.lines = this.splitLine(str)
-            .concat(this.lines);
+  function readTrunk() {
+    return openAndReadStat()
+      .then(() => read(fd, buffer, 0, bufferSize, offset))
+      .then(({ bytesRead, buffer }) => {
+        const buf = Buffer.concat([buffer.slice(0, bytesRead), leftover]);
+        if (offset === 0) {
+          hasEnd = true;
+          const str = buf.toString(encoding);
+          lines = splitLine(str).concat(lines);
           return;
         }
-        if (this.offset < this.bufferSize) {
-          this.bufferSize = this.offset;
-          this.offset = 0;
+        if (offset < bufferSize) {
+          bufferSize = offset;
+          offset = 0;
         } else {
-          this.offset -= this.bufferSize;
+          offset -= bufferSize;
         }
-        const [sl, sr] = this.splitBuffer(buf);
+        const [sl, sr] = splitBuffer(buf);
         if (!sl) {
-          this.leftover = buf;
-          return this.readTrunk();
+          leftover = buf;
+          return readTrunk();
         }
-        this.leftover = buf.slice(0, sl);
-        const str = buf.slice(sr)
-          .toString(this.encoding)
-        this.lines = this.splitLine(str)
-          .concat(this.lines);
-      })
+        leftover = buf.slice(0, sl);
+        const str = buf.slice(sr).toString(encoding);
+        lines = splitLine(str).concat(lines);
+      });
   }
 
-  async trimEndBR() {
-    const end = this.lines.pop();
-    if (end) this.lines.push(end);
+  let trimEndBR = () => {
+    trimEndBR = () => {};
+    if (!lines[lines.length - 1]) lines.pop();
+    if (!lines.length && !hasEnd) return readTrunk();
+    return Promise.resolve();
+  };
 
-    if (!this.lines.length && !this.hasEnd) await this.readTrunk();
-
-    this.trimEndBR = () => {};
-  }
-
-  async readLine() {
-    if (!this.lines.length && !this.hasEnd) await this.readTrunk();
-    await this.trimEndBR();
-    return this.lines.pop();
-  }
-
-  async readLines(size) {
-    if (this.lines.length < size && !this.hasEnd) {
-      await this.readTrunk();
-      await this.trimEndBR();
-      return this.readLines(size);
+  function readLines(size) {
+    if (lines.length < size && !hasEnd) {
+      return readTrunk()
+        .then(trimEndBR)
+        .then(() => readLines(size));
     }
-    const from = this.lines.length - Math.min(this.lines.length, size)
-    const result = this.lines.slice(from);
-    this.lines.length = from;
-    return result;
+    const from = lines.length - Math.min(lines.length, size);
+    const result = lines.slice(from);
+    lines.length = from;
+    return Promise.resolve(result);
   }
+
+  return {
+    close() {
+      return close(fd);
+    },
+    readLine() {
+      return (!lines.length && !hasEnd ? readTrunk() : Promise.resolve())
+        .then(trimEndBR)
+        .then(() => lines.pop());
+    },
+    readLines,
+  };
+}
+
+export function createStream(filename, options) {
+  const reader = create(filename, options);
+  return new Readable({
+    encoding: 'utf8',
+    read() {
+      reader.readLine().then((line) => {
+        this.push(line === undefined ? null : line);
+      });
+    },
+    destroy(err, cb) {
+      reader.close().then(cb);
+    }
+  });
+}
+
+export function readLines(filename, size, options) {
+  const reader = create(filename, options);
+  return reader.readLines(size).finally(reader.close);
 }

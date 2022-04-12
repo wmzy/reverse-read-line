@@ -13,13 +13,35 @@ npm install reverse-read-line
 ## Usage
 
 ```javascript
-import reverseReadLine from 'reverse-read-line';
+import * as rrl from 'reverse-read-line';
 
-const reader = new Reader(filename, options/* more time you need not specify */); 
-await reader.open();
+const reader = rrl.create(filename, options); 
 const lines = await reader.readLines(2);
 await reader.close();
 console.log(lines);
+
+```
+
+stream:
+
+```javascript
+import * as rrl from 'reverse-read-line';
+
+const stream = rrl.createStream(filename, options); 
+stream.on('data', (line) => {
+  console.log(line);
+});
+
+```
+
+read lines:
+
+```javascript
+import * as rrl from 'reverse-read-line';
+
+const lines = await rrl.readLines(filename, 5, options); 
+console.log(lines);
+
 ```
 
 Options:
