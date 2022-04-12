@@ -8,22 +8,23 @@
     "url": "https://github.com/wmzy/reverse-read-line.git"
   },
   "scripts": {
-    "test": "nyc mocha -r babel-core/register -r should -r should-sinon",
+    "test": "nyc mocha",
     "start": "npm test -- --watch",
     "build": "babel src --out-dir lib",
     "prepublish": "npm run build",
     "coverage": "nyc report --reporter=text-lcov | coveralls"
   },
   "devDependencies": {
-    "babel-cli": "^6.26.0",
-    "babel-core": "^6.26.3",
-    "babel-preset-env": "^1.7.0",
-    "coveralls": "^3.0.2",
-    "mocha": "^4.0.1",
-    "nyc": "^11.9.0",
+    "@babel/cli": "^7.17.6",
+    "@babel/core": "^7.17.9",
+    "@babel/preset-env": "^7.16.11",
+    "@babel/register": "^7.17.7",
+    "coveralls": "^3.1.1",
+    "mocha": "^9.2.2",
+    "nyc": "^15.1.0",
     "should": "^13.2.3",
     "should-sinon": "0.0.6",
-    "sinon": "^4.5.0"
+    "sinon": "^13.0.1"
   },
   "author": "wmzy",
   "keywords": [
@@ -33,6 +34,6 @@
   ],
   "license": "ISC",
   "dependencies": {
-    "lodash": "^4.17.11"
+    "lodash": "^4.17.21"
   }
 }

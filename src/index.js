@@ -68,7 +68,6 @@ export default class Reader {
         bytesRead,
         buffer
       }) => {
-        // if (bytesRead < this.bufferSize)
         const buf = Buffer.concat([buffer.slice(0, bytesRead), this.leftover]);
         if (this.offset === 0) {
           this.hasEnd = true;
@@ -77,7 +76,12 @@ export default class Reader {
             .concat(this.lines);
           return;
         }
-        this.offset = _.max([this.offset, this.bufferSize]) - this.bufferSize;
+        if (this.offset < this.bufferSize) {
+          this.bufferSize = this.offset;
+          this.offset = 0;
+        } else {
+          this.offset -= this.bufferSize;
+        }
         const [sl, sr] = this.splitBuffer(buf);
         if (!sl) {
           this.leftover = buf;
