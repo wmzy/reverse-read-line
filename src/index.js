@@ -1,6 +1,5 @@
 import fs from 'fs';
 import util from 'util';
-import _ from 'lodash/fp';
 
 const open = util.promisify(fs.open);
 const close = util.promisify(fs.close);
@@ -99,13 +98,13 @@ export default class Reader {
     const end = this.lines.pop();
     if (end) this.lines.push(end);
 
-    if (_.isEmpty(this.lines) && !this.hasEnd) await this.readTrunk();
+    if (!this.lines.length && !this.hasEnd) await this.readTrunk();
 
     this.trimEndBR = () => {};
   }
 
   async readLine() {
-    if (_.isEmpty(this.lines) && !this.hasEnd) await this.readTrunk();
+    if (!this.lines.length && !this.hasEnd) await this.readTrunk();
     await this.trimEndBR();
     return this.lines.pop();
   }
@@ -116,7 +115,7 @@ export default class Reader {
       await this.trimEndBR();
       return this.readLines(size);
     }
-    const from = this.lines.length - _.min([this.lines.length, size])
+    const from = this.lines.length - Math.min(this.lines.length, size)
     const result = this.lines.slice(from);
     this.lines.length = from;
     return result;

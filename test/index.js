@@ -1,7 +1,4 @@
 import path from 'path';
-import _ from 'lodash/fp';
-import should from 'should';
-import sinon from 'sinon';
 import Reader from '../src';
 
 describe('read-line', function () {
